@@ -157,6 +157,8 @@ cmark_parser *cmark_parser_new(int options) {
 }
 
 void cmark_parser_free(cmark_parser *parser) {
+  if (parser == NULL)
+    return;
   cmark_mem *mem = parser->mem;
   cmark_parser_dispose(parser);
   cmark_strbuf_free(&parser->curline);
@@ -720,7 +722,14 @@ static void S_parser_feed(cmark_parser *parser, const unsigned char *buffer,
   else
     parser->total_size += len;
 
-  if (parser->last_buffer_ended_with_cr && *buffer == '\n') {
+  if (len == 0 && !eof) {
+    // A zero-length non-final feed is a no-op: the buffer pointer may be
+    // invalid, and clearing last_buffer_ended_with_cr here would corrupt
+    // a CR/LF line ending split across two feeds.
+    return;
+  }
+
+  if (parser->last_buffer_ended_with_cr && len > 0 && *buffer == '\n') {
     // skip NL if last buffer ended with CR ; see #117
     buffer++;
   }
@@ -742,7 +751,13 @@ static void S_parser_feed(cmark_parser *parser, const unsigned char *buffer,
       process = true;
     }
 
-    chunk_len = (bufsize_t)(eol - buffer);
+    // A single line longer than what bufsize_t can address would wrap
+    // chunk_len negative and move the buffer pointer backwards; clamp the
+    // chunk and let the strbuf size limit in cmark_strbuf_grow handle the
+    // oversized input instead.
+    chunk_len = ((uintmax_t)(eol - buffer) > (uintmax_t)INT32_MAX)
+                    ? INT32_MAX
+                    : (bufsize_t)(eol - buffer);
     if (process) {
       if (parser->linebuf.size > 0) {
         cmark_strbuf_put(&parser->linebuf, buffer, chunk_len);
