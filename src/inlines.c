@@ -1272,7 +1272,25 @@ noMatch:
       //
       // (first, check for underflows)
       if ((fnref_start_column + 2) <= fnref_end_column) {
-        fnref->as.literal = cmark_chunk_dup(literal, 1, (fnref_end_column - fnref_start_column) - 2);
+        bufsize_t fnref_len = (fnref_end_column - fnref_start_column) - 2;
+        // The label length is derived from source columns, which assumes the
+        // '^' text node's literal points contiguously into the input line.
+        // When that node instead owns its buffer -- e.g. the '^' was produced
+        // by decoding an HTML entity such as `&#94;` -- the buffer holds only
+        // the decoded character and is freed together with the node in the
+        // cleanup loop below. Dup'ing an `fnref_len`-byte non-owning view into
+        // it would read past the allocation and, after the free, read freed
+        // memory (heap use-after-free / out-of-bounds read). Clamp to the
+        // owned length and copy so the reference keeps its own valid buffer.
+        if (literal->alloc) {
+          if (fnref_len > literal->len - 1) {
+            fnref_len = literal->len - 1;
+          }
+          fnref->as.literal = cmark_chunk_dup(literal, 1, fnref_len);
+          cmark_chunk_to_cstr(subj->mem, &fnref->as.literal);
+        } else {
+          fnref->as.literal = cmark_chunk_dup(literal, 1, fnref_len);
+        }
       } else {
         fnref->as.literal = cmark_chunk_dup(literal, 1, 0);
       }
