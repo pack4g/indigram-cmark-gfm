@@ -156,6 +156,10 @@ cmark_parser *cmark_parser_new(int options) {
   return cmark_parser_new_with_mem(options, &CMARK_DEFAULT_MEM_ALLOCATOR);
 }
 
+void cmark_parser_set_allocation_abort_flag(cmark_parser *parser, int *flag) {
+  parser->allocation_abort_flag = flag;
+}
+
 void cmark_parser_free(cmark_parser *parser) {
   cmark_mem *mem = parser->mem;
   cmark_parser_dispose(parser);
@@ -1524,6 +1528,12 @@ cmark_node *cmark_parser_finish(cmark_parser *parser) {
   /* Parser was already finished once */
   if (parser->root == NULL)
     return NULL;
+
+  if (parser->allocation_abort_flag && *parser->allocation_abort_flag) {
+    cmark_node_free(parser->root);
+    parser->root = NULL;
+    return NULL;
+  }
 
   if (parser->linebuf.size) {
     S_process_line(parser, parser->linebuf.ptr, parser->linebuf.size);

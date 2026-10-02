@@ -579,6 +579,12 @@ cmark_parser *cmark_parser_new(int options);
 CMARK_GFM_EXPORT
 cmark_parser *cmark_parser_new_with_mem(int options, cmark_mem *mem);
 
+/** Attaches an abort flag polled by the parser; when set to non-zero
+ * cmark_parser_finish() frees the partial tree and returns NULL.
+ */
+CMARK_GFM_EXPORT
+void cmark_parser_set_allocation_abort_flag(cmark_parser *parser, int *flag);
+
 /** Frees memory allocated for a parser object.
  */
 CMARK_GFM_EXPORT

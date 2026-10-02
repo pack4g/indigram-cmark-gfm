@@ -50,6 +50,7 @@ struct cmark_parser {
   cmark_llist *syntax_extensions;
   cmark_llist *inline_syntax_extensions;
   cmark_ispunct_func backslash_ispunct;
+  int *allocation_abort_flag;
 };
 
 #ifdef __cplusplus
